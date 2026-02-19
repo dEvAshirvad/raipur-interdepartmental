@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 
-// POST contact form submission
 router.post('/', (req, res) => {
   const { name, department, subject, message, email, phone } = req.body;
 
@@ -9,8 +8,13 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Name, email, subject, and message are required.' });
   }
 
-  // In production: save to DB or send email via nodemailer
-  console.log('Contact form submission:', { name, department, subject, email, phone, message });
+  if (name.length > 200 || subject.length > 300 || message.length > 5000 || email.length > 254) {
+    return res.status(400).json({ error: 'One or more fields exceed maximum length.' });
+  }
+
+  // TODO: In production, save to a database table or forward via email (nodemailer).
+  // Logging only non-PII metadata for operational visibility.
+  console.log('Contact form submitted:', { department: department || 'N/A', subject });
 
   res.status(200).json({
     success: true,

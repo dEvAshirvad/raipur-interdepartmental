@@ -30,8 +30,8 @@ router.post('/users', requireAdmin, (req, res) => {
   if (role === 'department' && !dept_id) {
     return res.status(400).json({ error: 'dept_id is required for department users.' });
   }
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters.' });
   }
 
   const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username.trim().toLowerCase());
@@ -51,10 +51,21 @@ router.post('/users', requireAdmin, (req, res) => {
 // PATCH /api/portal/users/:id/status  — toggle is_active (admin)
 router.patch('/users/:id/status', requireAdmin, (req, res) => {
   const userId = parseInt(req.params.id);
+  if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID.' });
   const { is_active } = req.body;
 
   if (userId === req.user.id) {
     return res.status(400).json({ error: 'You cannot deactivate your own account.' });
+  }
+
+  const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(userId);
+  if (!target) return res.status(404).json({ error: 'User not found.' });
+
+  if (!is_active && target.role === 'admin') {
+    const activeAdmins = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin' AND is_active = 1").get().c;
+    if (activeAdmins <= 1) {
+      return res.status(400).json({ error: 'Cannot deactivate the last active admin account.' });
+    }
   }
 
   db.prepare('UPDATE users SET is_active = ? WHERE id = ?').run(is_active ? 1 : 0, userId);
@@ -64,10 +75,11 @@ router.patch('/users/:id/status', requireAdmin, (req, res) => {
 // PATCH /api/portal/users/:id/password  — admin resets a user's password
 router.patch('/users/:id/password', requireAdmin, (req, res) => {
   const userId = parseInt(req.params.id);
+  if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID.' });
   const { newPassword } = req.body;
 
-  if (!newPassword || newPassword.length < 6) {
-    return res.status(400).json({ error: 'newPassword must be at least 6 characters.' });
+  if (!newPassword || newPassword.length < 8) {
+    return res.status(400).json({ error: 'newPassword must be at least 8 characters.' });
   }
 
   const hash = bcrypt.hashSync(newPassword, 12);
